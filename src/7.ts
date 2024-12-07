@@ -10,19 +10,35 @@ const toRecord = (line: string): Rec => {
   return {
     result: Number(result),
     values: values.split(" ").map(Number),
-  }
-}
+  };
+};
+
 const records = readFileSync("data/7.txt", "utf8").split("\n").map(toRecord);
 
-const findSolution = (result: number, values: number[]) => {
-    if (values.length === 0) return result === 0;
-    const last = values[values.length - 1];
-    const remaining = values.slice(0, values.length - 1);
-    return findSolution(result-last, remaining) || findSolution(result/last, remaining);
-}
+const solutionExists = (
+  rec: Rec,
+  expansions: ((a: number, b: number) => number)[]
+): number => {
+  let variants = [rec.values[0]];
 
-console.log("Part1: ",  records
-    .filter((r) => findSolution(r.result, r.values))
+  for (let i = 1; i < rec.values.length; i++) {
+    variants = variants.flatMap((answer) =>
+      expansions.map((expansion) => expansion(answer, rec.values[i]))
+    );
+    if (variants.includes(rec.result)) return rec.result;
+  }
+  return 0;
+};
+
+const addFun = (a: number, b: number) => a + b;
+const mulFun = (a: number, b: number) => a * b;
+const concatFun = (a: number, b: number) => +`${a}${b}`;
+
+const solve = (expansions: ((a: number, b: number) => number)[]): number =>
+  records
+    .filter((r) => solutionExists(r, expansions))
     .map((r) => r.result)
-    .reduce((a, b) => a + b, 0));
+    .reduce((a, b) => a + b, 0);
 
+console.log("Part1: ", solve([addFun, mulFun]));
+console.log("Part2: ", solve([addFun, mulFun, concatFun]));
