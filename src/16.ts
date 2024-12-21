@@ -1,6 +1,82 @@
 import { readFileSync } from "fs";
 
-const loadMaze = () => {
+interface Position {
+  row: number;
+  col: number;
+}
+type Direction = "^" | "v" | "<" | ">";
+
+type Node = Position & {
+  dir: Direction;
+};
+
+type NodeEx = Node & {
+  positions: Set<string>;
+  score: number;
+};
+
+const posToString = (pos: Position) => `(${pos.row},${pos.col})`;
+const nodeToString = (node: Node) => `(${node.row},${node.col},${node.dir})`;
+
+const disallowedDir = new Map<Direction, Direction>([
+  ["^", "v"],
+  ["v", "^"],
+  ["<", ">"],
+  [">", "<"],
+]);
+
+const neighbouringNodes = (maze: string[][], currentNode: NodeEx): NodeEx[] => {
+  return [
+    { row: currentNode.row - 1, col: currentNode.col, dir: "^" as Direction },
+    { row: currentNode.row + 1, col: currentNode.col, dir: "v" as Direction },
+    { row: currentNode.row, col: currentNode.col - 1, dir: "<" as Direction },
+    { row: currentNode.row, col: currentNode.col + 1, dir: ">" as Direction },
+  ]
+    .filter((n: Node) => maze[n.row]?.[n.col] !== "#")
+    .filter((n: Node) => n.dir !== disallowedDir[currentNode.dir])
+    .map(
+      (n: Node): NodeEx => ({
+        ...n,
+        positions: new Set([...currentNode.positions, posToString(n)]),
+        score: currentNode.score + 1 + (n.dir !== currentNode.dir ? 1000 : 0),
+      })
+    );
+};
+
+const findPaths = (maze, startPos: Position, endPos: Position): {score: number, positions: number} => {
+  let currentNode: NodeEx = {
+    ...startPos,
+    dir: ">",
+    score: 0,
+    positions: new Set([posToString(startPos)]),
+  };
+  const nodesToVisit: NodeEx[] = [currentNode];
+  const visited = new Map([[nodeToString(currentNode), currentNode]]);
+  while (nodesToVisit.length > 0) {
+    currentNode = nodesToVisit.shift()!;
+    neighbouringNodes(maze, currentNode).forEach((n) => {
+      const prev = visited.get(nodeToString(n));
+      if (!prev || prev.score > n.score) {
+        nodesToVisit.push(n);
+        visited.set(nodeToString(n), n);
+      } else if (prev.score === n.score) {
+        prev.positions = new Set([...prev.positions, ...n.positions]);
+      }
+    });
+  }
+
+  return [...visited.values()]
+    .filter((n) => n.row === endPos.row && n.col === endPos.col)
+    .reduce(
+      ({ score, positions }, n) => {
+        if (n.score < score) return { score: n.score, positions: n.positions.size };
+        else return { score, positions };
+      },
+      { score: Infinity, positions: 0 }
+    );
+};
+
+const { maze, startPos, endPos } = (() => {
   const maze = readFileSync("data/16.txt", "utf8")
     .split("\n")
     .map((line) => line.split(""));
@@ -14,89 +90,9 @@ const loadMaze = () => {
   const endPos = findChar("E");
 
   return { maze, startPos, endPos };
-};
+})();
 
-const { maze, startPos, endPos } = loadMaze();
+const { score, positions } = findPaths(maze, startPos, endPos);
 
-const posToKey = (pos: { row: number; col: number }, direction?: string) =>
-  direction
-    ? `(${pos.col},${pos.row},${direction})`
-    : `(${pos.col},${pos.row})`;
-
-interface Node {
-  row: number;
-  col: number;
-  accumulatedCost: number;
-  parent?: Node;
-  direction: string;
-}
-
-const pathFinder = (
-  maze: string[][],
-  start: { row: number; col: number },
-  end: { row: number; col: number }
-): Node[] | undefined => {
-  const priorityQueue: Array<[number, Node]> = []; // [cost, node]
-  const visited: Set<string> = new Set();
-
-  const enqueue = (cost: number, node: Node) => {
-    priorityQueue.push([cost, node]);
-    priorityQueue.sort((a, b) => a[0] - b[0]);
-  };
-
-  enqueue(0, { row: start.row, col: start.col, accumulatedCost: 0, direction: ">" });
-
-  while (priorityQueue.length > 0) {
-    const [_, currentNode] = priorityQueue.shift()!;
-    const currentKey = posToKey(currentNode, currentNode.direction);
-
-    if (visited.has(currentKey)) continue;
-    visited.add(currentKey);
-
-    if (currentNode.row === end.row && currentNode.col === end.col) {
-      const path: Node[] = [];
-      let node: Node | undefined = currentNode;
-      while (node) {
-        path.unshift(node);
-        node = node.parent;
-      }
-      return path;
-    }
-
-    [
-      { row: currentNode.row - 1, col: currentNode.col, direction: "^" }, // Up
-      { row: currentNode.row + 1, col: currentNode.col, direction: "v" }, // Down
-      { row: currentNode.row, col: currentNode.col - 1, direction: "<" }, // Left
-      { row: currentNode.row, col: currentNode.col + 1, direction: ">" }, // Right
-    ].forEach((neighbor) => {
-      if (
-        neighbor.row >= 0 &&
-        neighbor.row < maze.length &&
-        neighbor.col >= 0 &&
-        neighbor.col < maze[neighbor.row].length &&
-        maze[neighbor.row][neighbor.col] !== "#"
-      ) {
-        const directionChanged = currentNode.direction !== neighbor.direction;
-        const accumulatedCost =
-          currentNode.accumulatedCost + (directionChanged ? 1001 : 1);
-
-        const neighborNode: Node = {
-          ...neighbor,
-          accumulatedCost,
-          parent: currentNode,
-        };
-
-        const neighborKey = posToKey(neighborNode, neighborNode.direction);
-
-        if (!visited.has(neighborKey)) {
-          enqueue(accumulatedCost, neighborNode);
-        }
-      }
-    });
-  }
-
-  return;
-};
-
-const path = pathFinder(maze, startPos, endPos);
-console.log("Part1: ", path![path!.length-1].accumulatedCost);
+console.log("Part1: ", score);
+console.log("Part2: ", positions);
