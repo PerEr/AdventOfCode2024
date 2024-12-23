@@ -27,7 +27,8 @@ const bfsPathFind = (maze: Position[], width: number): number | undefined => {
   while (queue.length > 0) {
     const current = queue.shift()!;
     const currentKey = posToKey(current);
-    if (current.x === endPos.x && current.y === endPos.y) return distance.get(currentKey);
+    if (current.x === endPos.x && current.y === endPos.y)
+      return distance.get(currentKey);
     if (visited.has(posToKey(current))) continue;
     visited.add(currentKey);
     [
@@ -36,19 +37,36 @@ const bfsPathFind = (maze: Position[], width: number): number | undefined => {
       { x: current.x, y: current.y - 1 },
       { x: current.x, y: current.y + 1 },
     ]
-    .filter((neighbor) => neighbor.x >= 0 && neighbor.x < width && neighbor.y >= 0 && neighbor.y < width)
-    .filter((neighbor) => !mazeSet.has(posToKey(neighbor)))
-    .forEach((neighbor) => {
-      distance.set(posToKey(neighbor), distance.get(currentKey)! + 1);
-      queue.push(neighbor);
-    });
+      .filter(
+        (neighbor) =>
+          neighbor.x >= 0 &&
+          neighbor.x < width &&
+          neighbor.y >= 0 &&
+          neighbor.y < width
+      )
+      .filter((neighbor) => !mazeSet.has(posToKey(neighbor)))
+      .forEach((neighbor) => {
+        distance.set(posToKey(neighbor), distance.get(currentKey)! + 1);
+        queue.push(neighbor);
+      });
   }
-}
+};
 
 //const {maze, width, firstN } = { maze: loadMaze("data/18_test.txt"), width: 7, firstN: 12 };
-const {maze, width, firstN } = { maze: loadMaze("data/18.txt"), width: 71, firstN: 1024 };
+const { maze, width, firstN } = {
+  maze: loadMaze("data/18.txt"),
+  width: 71,
+  firstN: 1024,
+};
 
 const part1 = maze.slice(0, firstN);
-const dist = bfsPathFind(part1, width);
+console.log("Part1:", bfsPathFind(part1, width));
 
-console.log("Part1: ", dist);
+for (let ii = firstN; ii < maze.length; ii++) {
+  const testMaze = maze.slice(0, ii);
+  if (!bfsPathFind(testMaze, width)) {
+    const lastPos= testMaze[testMaze.length - 1];
+    console.log("Part2:", lastPos.x + ',' + lastPos.y);
+    break;
+  }
+}
