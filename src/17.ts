@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 
 interface Registers {
-  A: bigint
+  A: bigint;
   B: bigint;
   C: bigint;
   IP: number;
@@ -28,13 +28,12 @@ const { registers, program } = ((fileName) => {
     IP: 0,
   };
 
-  const rawProgram =
+  const program: Instruction[] = (
     input
       .match(/^Program: ([\d,]+)$/m)?.[1]
       .split(",")
-      .map(Number) || [];
-
-  const program: Instruction[] = rawProgram.reduce((acc, _, i, src) => {
+      .map(Number) || []
+  ).reduce((acc, _, i, src) => {
     if (i % 2 === 0) acc.push({ opcode: src[i], operand: src[i + 1] });
     return acc;
   }, [] as Instruction[]);
@@ -93,5 +92,33 @@ const runProgram = (program: Instruction[], registers: Registers) => {
   return output;
 };
 
-const result = runProgram(program, registers);
+const result = runProgram(program, { ...registers });
 console.log("Part1: ", result.join(","));
+
+/*
+  2, 4,  modify reg B
+  1, 2,  modify reg B
+  7, 5,  modify reg C
+  4, 3,  modify reg B
+  0, 3,  registers.A /= 8
+  1, 7,  modify reg B
+  5, 5,  output.push(reg.B % 8n);
+  3, 0,  reg A ? goto 0 : exit
+*/
+
+const solveForA = (program, registers) => {
+  const expected = program.flatMap((i) => [i.opcode, i.operand]).join(",");
+  for (let ii = 0n; ii < 8n; ii++) {
+    const candidateA = registers.A + ii;
+    const output = runProgram(program, { ...registers, A: candidateA });
+    const out = output.join(",");
+    if (expected === out) return candidateA;
+    if (expected.endsWith(out)) {
+      const result = solveForA(program, { ...registers, A: candidateA * 8n });
+      if (result) return result;
+    }
+  }
+};
+
+const A = solveForA(program, { ...registers, A: 1n });
+console.log("Part2: ", A);
